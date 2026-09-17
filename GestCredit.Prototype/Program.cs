@@ -1,143 +1,53 @@
-﻿// GestCredit.Prototype - Jour 4
-// Gestion d'une liste de clients en mémoire, entièrement via LINQ
-
-var clients = new List<Client>
-{
-    new Client(1, "Amadou Diallo", "Dakar"),
-    new Client(2, "Fatou Ndiaye", "Thiès"),
-    new Client(3, "Moussa Kane", "Dakar"),
-    new Client(4, "Aïssatou Ba", "Saint-Louis"),
-    new Client(5, "Ibrahima Sow", "Dakar"),
-};
+﻿// GestCredit.Prototype - Jour 1
+// Menu console à 4 options, qui gère les saisies invalides sans planter
 
 bool continuer = true;
 
 while (continuer)
 {
+    // Affichage du menu
     Console.WriteLine();
-    Console.WriteLine("=== Gestion des clients ===");
-    Console.WriteLine("1. Lister les clients (triés par nom)");
-    Console.WriteLine("2. Ajouter un client");
-    Console.WriteLine("3. Supprimer un client par id");
-    Console.WriteLine("4. Rechercher par fragment de nom");
-    Console.WriteLine("5. Compter les clients");
-    Console.WriteLine("6. Quitter");
+    Console.WriteLine("=== GestCredit - Menu principal ===");
+    Console.WriteLine("1. Ajouter un client");
+    Console.WriteLine("2. Lister les clients");
+    Console.WriteLine("3. Simuler un crédit");
+    Console.WriteLine("4. Quitter");
     Console.Write("Votre choix : ");
 
-    if (!int.TryParse(Console.ReadLine(), out int choix))
+    // Lecture de la saisie utilisateur (toujours une string, jamais null ici car Console.ReadLine peut renvoyer null en théorie)
+    string? saisie = Console.ReadLine();
+
+    // Tentative de conversion en entier, SANS exception si ça échoue
+    bool choixValide = int.TryParse(saisie, out int choix);
+
+    if (!choixValide)
     {
-        Console.WriteLine("Erreur : entrez un nombre.");
-        continue;
+        Console.WriteLine("Erreur : veuillez entrer un nombre entre 1 et 4.");
+        continue; // on relance la boucle, on redemande
     }
 
+    // Le switch expression / statement gère chaque option
     switch (choix)
     {
         case 1:
-            ListerClients(clients);
+            Console.WriteLine("-> [À implémenter] Ajouter un client");
             break;
 
         case 2:
-            AjouterClient(clients);
+            Console.WriteLine("-> [À implémenter] Lister les clients");
             break;
 
         case 3:
-            SupprimerClient(clients);
+            Console.WriteLine("-> [À implémenter] Simuler un crédit");
             break;
 
         case 4:
-            RechercherParNom(clients);
-            break;
-
-        case 5:
-            Console.WriteLine($"Nombre de clients : {clients.Count()}");
-            break;
-
-        case 6:
-            continuer = false;
+            Console.WriteLine("Au revoir !");
+            continuer = false; // on sort de la boucle while
             break;
 
         default:
-            Console.WriteLine("Choix invalide.");
+            Console.WriteLine("Erreur : choix invalide, entrez un nombre entre 1 et 4.");
             break;
     }
 }
-
-
-// ===================== Méthodes =====================
-
-static void ListerClients(List<Client> clients)
-{
-    // OrderBy : tri par nom, sans boucle manuelle
-    var triés = clients.OrderBy(c => c.Nom);
-
-    if (!triés.Any())
-    {
-        Console.WriteLine("Aucun client enregistré.");
-        return;
-    }
-
-    foreach (var c in triés)
-        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
-}
-
-static void AjouterClient(List<Client> clients)
-{
-    Console.Write("Nom du client : ");
-    string? nom = Console.ReadLine();
-
-    Console.Write("Ville : ");
-    string? ville = Console.ReadLine();
-
-    // Select + calcul du prochain id sans boucle manuelle
-    int prochainId = clients.Any() ? clients.Select(c => c.Id).Max() + 1 : 1;
-
-    clients.Add(new Client(prochainId, nom ?? "", ville ?? ""));
-    Console.WriteLine($"Client ajouté avec l'id {prochainId}.");
-}
-
-static void SupprimerClient(List<Client> clients)
-{
-    Console.Write("Id du client à supprimer : ");
-    if (!int.TryParse(Console.ReadLine(), out int id))
-    {
-        Console.WriteLine("Erreur : id invalide.");
-        return;
-    }
-
-    // FirstOrDefault : recherche sans boucle manuelle
-    Client? client = clients.FirstOrDefault(c => c.Id == id);
-
-    if (client is null)
-    {
-        Console.WriteLine("Aucun client avec cet id.");
-        return;
-    }
-
-    clients.Remove(client);
-    Console.WriteLine("Client supprimé.");
-}
-
-static void RechercherParNom(List<Client> clients)
-{
-    Console.Write("Fragment de nom à rechercher : ");
-    string? fragment = Console.ReadLine() ?? "";
-
-    // Where + Contains insensible à la casse, sans boucle manuelle
-    var résultats = clients
-        .Where(c => c.Nom.Contains(fragment, StringComparison.OrdinalIgnoreCase))
-        .OrderBy(c => c.Nom);
-
-    if (!résultats.Any())
-    {
-        Console.WriteLine("Aucun résultat.");
-        return;
-    }
-
-    foreach (var c in résultats)
-        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
-}
-
-
-// ===================== Modèle =====================
-
-record Client(int Id, string Nom, string Ville);
