@@ -1,53 +1,92 @@
-﻿// GestCredit.Prototype - Jour 1
-// Menu console à 4 options, qui gère les saisies invalides sans planter
+﻿// GestCredit.Prototype - Jour 2
+// Calculateur de mensualité de prêt (montant, taux annuel, durée)
+// Règle : decimal pour tout montant financier, jamais double
 
-bool continuer = true;
+Console.WriteLine("=== Calculateur de mensualité de prêt ===");
+Console.WriteLine();
 
-while (continuer)
+// --- Saisie du montant ---
+decimal montant;
+while (true)
 {
-    // Affichage du menu
-    Console.WriteLine();
-    Console.WriteLine("=== GestCredit - Menu principal ===");
-    Console.WriteLine("1. Ajouter un client");
-    Console.WriteLine("2. Lister les clients");
-    Console.WriteLine("3. Simuler un crédit");
-    Console.WriteLine("4. Quitter");
-    Console.Write("Votre choix : ");
+    Console.Write("Montant du prêt (FCFA) : ");
+    string? saisieMontant = Console.ReadLine();
 
-    // Lecture de la saisie utilisateur (toujours une string, jamais null ici car Console.ReadLine peut renvoyer null en théorie)
-    string? saisie = Console.ReadLine();
-
-    // Tentative de conversion en entier, SANS exception si ça échoue
-    bool choixValide = int.TryParse(saisie, out int choix);
-
-    if (!choixValide)
+    if (!decimal.TryParse(saisieMontant, out montant))
     {
-        Console.WriteLine("Erreur : veuillez entrer un nombre entre 1 et 4.");
-        continue; // on relance la boucle, on redemande
+        Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
+        continue;
     }
 
-    // Le switch expression / statement gère chaque option
-    switch (choix)
+    if (montant <= 0)
     {
-        case 1:
-            Console.WriteLine("-> [À implémenter] Ajouter un client");
-            break;
-
-        case 2:
-            Console.WriteLine("-> [À implémenter] Lister les clients");
-            break;
-
-        case 3:
-            Console.WriteLine("-> [À implémenter] Simuler un crédit");
-            break;
-
-        case 4:
-            Console.WriteLine("Au revoir !");
-            continuer = false; // on sort de la boucle while
-            break;
-
-        default:
-            Console.WriteLine("Erreur : choix invalide, entrez un nombre entre 1 et 4.");
-            break;
+        Console.WriteLine("Erreur : le montant doit être positif.");
+        continue;
     }
+
+    break; // saisie valide, on sort de la boucle
 }
+
+// --- Saisie du taux annuel ---
+decimal tauxAnnuel;
+while (true)
+{
+    Console.Write("Taux annuel (%) : ");
+    string? saisieTaux = Console.ReadLine();
+
+    if (!decimal.TryParse(saisieTaux, out tauxAnnuel))
+    {
+        Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
+        continue;
+    }
+
+    if (tauxAnnuel <= 0)
+    {
+        Console.WriteLine("Erreur : le taux doit être positif.");
+        continue;
+    }
+
+    break;
+}
+
+// --- Saisie de la durée ---
+int duree;
+while (true)
+{
+    Console.Write("Durée (mois) : ");
+    string? saisieDuree = Console.ReadLine();
+
+    if (!int.TryParse(saisieDuree, out duree))
+    {
+        Console.WriteLine("Erreur : veuillez entrer un nombre entier valide.");
+        continue;
+    }
+
+    if (duree <= 0)
+    {
+        Console.WriteLine("Erreur : la durée doit être positive.");
+        continue;
+    }
+
+    break;
+}
+
+// --- Calcul de la mensualité ---
+// Formule des annuités constantes :
+// M = Montant * tauxMensuel / (1 - (1 + tauxMensuel)^(-duree))
+
+decimal tauxMensuel = tauxAnnuel / 12 / 100;
+
+// Math.Pow travaille en double, on convertit puis on reconvertit en decimal
+double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -duree);
+decimal mensualite = montant * tauxMensuel / (decimal)facteur;
+
+decimal coutTotal = mensualite * duree;
+decimal interets = coutTotal - montant;
+
+// --- Affichage formaté à 2 décimales ---
+Console.WriteLine();
+Console.WriteLine("=== Résultat ===");
+Console.WriteLine($"Mensualité   : {mensualite:N2} FCFA");
+Console.WriteLine($"Coût total   : {coutTotal:N2} FCFA");
+Console.WriteLine($"Intérêts     : {interets:N2} FCFA");
