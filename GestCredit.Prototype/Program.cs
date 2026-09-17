@@ -1,143 +1,93 @@
-﻿// GestCredit.Prototype - Jour 4
-// Gestion d'une liste de clients en mémoire, entièrement via LINQ
+﻿// GestCredit.Prototype - Jour 6
+// Classes Client et DemandeCredit avec encapsulation
 
-var clients = new List<Client>
+var client = new Client("Amadou Diallo", "Dakar");
+Console.WriteLine($"Client créé : {client}");
+
+try
 {
-    new Client(1, "Amadou Diallo", "Dakar"),
-    new Client(2, "Fatou Ndiaye", "Thiès"),
-    new Client(3, "Moussa Kane", "Dakar"),
-    new Client(4, "Aïssatou Ba", "Saint-Louis"),
-    new Client(5, "Ibrahima Sow", "Dakar"),
-};
-
-bool continuer = true;
-
-while (continuer)
+    var demande = new DemandeCredit(client, montant: 5_000_000m, tauxAnnuel: 12m, dureeMois: 24);
+    Console.WriteLine($"Mensualité : {demande.Mensualite:N2} FCFA");
+    Console.WriteLine($"Coût total : {demande.CoutTotal:N2} FCFA");
+    Console.WriteLine($"Intérêts   : {demande.Interets:N2} FCFA");
+}
+catch (ArgumentException ex)
 {
-    Console.WriteLine();
-    Console.WriteLine("=== Gestion des clients ===");
-    Console.WriteLine("1. Lister les clients (triés par nom)");
-    Console.WriteLine("2. Ajouter un client");
-    Console.WriteLine("3. Supprimer un client par id");
-    Console.WriteLine("4. Rechercher par fragment de nom");
-    Console.WriteLine("5. Compter les clients");
-    Console.WriteLine("6. Quitter");
-    Console.Write("Votre choix : ");
+    Console.WriteLine($"Erreur : {ex.Message}");
+}
 
-    if (!int.TryParse(Console.ReadLine(), out int choix))
-    {
-        Console.WriteLine("Erreur : entrez un nombre.");
-        continue;
-    }
-
-    switch (choix)
-    {
-        case 1:
-            ListerClients(clients);
-            break;
-
-        case 2:
-            AjouterClient(clients);
-            break;
-
-        case 3:
-            SupprimerClient(clients);
-            break;
-
-        case 4:
-            RechercherParNom(clients);
-            break;
-
-        case 5:
-            Console.WriteLine($"Nombre de clients : {clients.Count()}");
-            break;
-
-        case 6:
-            continuer = false;
-            break;
-
-        default:
-            Console.WriteLine("Choix invalide.");
-            break;
-    }
+// Test volontaire d'un montant invalide pour vérifier que le constructeur protège bien la classe
+try
+{
+    var demandeInvalide = new DemandeCredit(client, montant: -1000m, tauxAnnuel: 12m, dureeMois: 24);
+}
+catch (ArgumentException ex)
+{
+    Console.WriteLine($"Erreur attendue : {ex.Message}");
 }
 
 
-// ===================== Méthodes =====================
+// ===================== Classes =====================
 
-static void ListerClients(List<Client> clients)
+class Client
 {
-    // OrderBy : tri par nom, sans boucle manuelle
-    var triés = clients.OrderBy(c => c.Nom);
+    // ID généré automatiquement, exposé en lecture seule
+    private static int _prochainId = 1;
 
-    if (!triés.Any())
+    public int Id { get; }
+    public string Nom { get; }
+    public string Ville { get; }
+
+    public Client(string nom, string ville)
     {
-        Console.WriteLine("Aucun client enregistré.");
-        return;
+        if (string.IsNullOrWhiteSpace(nom))
+            throw new ArgumentException("Le nom du client est obligatoire.");
+
+        Id = _prochainId++;
+        Nom = nom;
+        Ville = ville;
     }
 
-    foreach (var c in triés)
-        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
+    public override string ToString() => $"[{Id}] {Nom} ({Ville})";
 }
 
-static void AjouterClient(List<Client> clients)
+class DemandeCredit
 {
-    Console.Write("Nom du client : ");
-    string? nom = Console.ReadLine();
+    public Client Client { get; }
+    public decimal Montant { get; }
+    public decimal TauxAnnuel { get; }
+    public int DureeMois { get; }
 
-    Console.Write("Ville : ");
-    string? ville = Console.ReadLine();
-
-    // Select + calcul du prochain id sans boucle manuelle
-    int prochainId = clients.Any() ? clients.Select(c => c.Id).Max() + 1 : 1;
-
-    clients.Add(new Client(prochainId, nom ?? "", ville ?? ""));
-    Console.WriteLine($"Client ajouté avec l'id {prochainId}.");
-}
-
-static void SupprimerClient(List<Client> clients)
-{
-    Console.Write("Id du client à supprimer : ");
-    if (!int.TryParse(Console.ReadLine(), out int id))
+    // Propriétés calculées : PAS de champ stocké, PAS de set public.
+    // Elles se recalculent à chaque lecture à partir de Montant, TauxAnnuel, DureeMois.
+    public decimal Mensualite
     {
-        Console.WriteLine("Erreur : id invalide.");
-        return;
+        get
+        {
+            decimal tauxMensuel = TauxAnnuel / 12 / 100;
+            double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -DureeMois);
+            return Montant * tauxMensuel / (decimal)facteur;
+        }
     }
 
-    // FirstOrDefault : recherche sans boucle manuelle
-    Client? client = clients.FirstOrDefault(c => c.Id == id);
+    public decimal CoutTotal => Mensualite * DureeMois; // syntaxe expression-bodied, équivalente à un get { }
 
-    if (client is null)
+    public decimal Interets => CoutTotal - Montant;
+
+    public DemandeCredit(Client client, decimal montant, decimal tauxAnnuel, int dureeMois)
     {
-        Console.WriteLine("Aucun client avec cet id.");
-        return;
+        if (montant <= 0)
+            throw new ArgumentException("Le montant doit être positif.", nameof(montant));
+
+        if (tauxAnnuel <= 0)
+            throw new ArgumentException("Le taux doit être positif.", nameof(tauxAnnuel));
+
+        if (dureeMois <= 0)
+            throw new ArgumentException("La durée doit être positive.", nameof(dureeMois));
+
+        Client = client;
+        Montant = montant;
+        TauxAnnuel = tauxAnnuel;
+        DureeMois = dureeMois;
     }
-
-    clients.Remove(client);
-    Console.WriteLine("Client supprimé.");
 }
-
-static void RechercherParNom(List<Client> clients)
-{
-    Console.Write("Fragment de nom à rechercher : ");
-    string? fragment = Console.ReadLine() ?? "";
-
-    // Where + Contains insensible à la casse, sans boucle manuelle
-    var résultats = clients
-        .Where(c => c.Nom.Contains(fragment, StringComparison.OrdinalIgnoreCase))
-        .OrderBy(c => c.Nom);
-
-    if (!résultats.Any())
-    {
-        Console.WriteLine("Aucun résultat.");
-        return;
-    }
-
-    foreach (var c in résultats)
-        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
-}
-
-
-// ===================== Modèle =====================
-
-record Client(int Id, string Nom, string Ville);
