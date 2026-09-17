@@ -1,114 +1,143 @@
-﻿// GestCredit.Prototype - Jour 3
-// Refactoring du Jour 2 en méthodes courtes + switch expression
+﻿// GestCredit.Prototype - Jour 4
+// Gestion d'une liste de clients en mémoire, entièrement via LINQ
 
-decimal montant = SaisirMontant();
-decimal tauxAnnuel = SaisirTauxAnnuel();
-int duree = SaisirDuree();
+var clients = new List<Client>
+{
+    new Client(1, "Amadou Diallo", "Dakar"),
+    new Client(2, "Fatou Ndiaye", "Thiès"),
+    new Client(3, "Moussa Kane", "Dakar"),
+    new Client(4, "Aïssatou Ba", "Saint-Louis"),
+    new Client(5, "Ibrahima Sow", "Dakar"),
+};
 
-string categorie = DeterminerCategorie(montant);
-Console.WriteLine($"Catégorie du prêt : {categorie}");
+bool continuer = true;
 
-(decimal mensualite, decimal coutTotal, decimal interets) = CalculerPret(montant, tauxAnnuel, duree);
+while (continuer)
+{
+    Console.WriteLine();
+    Console.WriteLine("=== Gestion des clients ===");
+    Console.WriteLine("1. Lister les clients (triés par nom)");
+    Console.WriteLine("2. Ajouter un client");
+    Console.WriteLine("3. Supprimer un client par id");
+    Console.WriteLine("4. Rechercher par fragment de nom");
+    Console.WriteLine("5. Compter les clients");
+    Console.WriteLine("6. Quitter");
+    Console.Write("Votre choix : ");
 
-AfficherResultat(mensualite, coutTotal, interets);
+    if (!int.TryParse(Console.ReadLine(), out int choix))
+    {
+        Console.WriteLine("Erreur : entrez un nombre.");
+        continue;
+    }
+
+    switch (choix)
+    {
+        case 1:
+            ListerClients(clients);
+            break;
+
+        case 2:
+            AjouterClient(clients);
+            break;
+
+        case 3:
+            SupprimerClient(clients);
+            break;
+
+        case 4:
+            RechercherParNom(clients);
+            break;
+
+        case 5:
+            Console.WriteLine($"Nombre de clients : {clients.Count()}");
+            break;
+
+        case 6:
+            continuer = false;
+            break;
+
+        default:
+            Console.WriteLine("Choix invalide.");
+            break;
+    }
+}
 
 
 // ===================== Méthodes =====================
 
-static decimal SaisirMontant()
+static void ListerClients(List<Client> clients)
 {
-    while (true)
+    // OrderBy : tri par nom, sans boucle manuelle
+    var triés = clients.OrderBy(c => c.Nom);
+
+    if (!triés.Any())
     {
-        Console.Write("Montant du prêt (FCFA) : ");
-        string? saisie = Console.ReadLine();
-
-        if (!decimal.TryParse(saisie, out decimal montant))
-        {
-            Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
-            continue;
-        }
-
-        if (montant <= 0)
-        {
-            Console.WriteLine("Erreur : le montant doit être positif.");
-            continue;
-        }
-
-        return montant;
+        Console.WriteLine("Aucun client enregistré.");
+        return;
     }
+
+    foreach (var c in triés)
+        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
 }
 
-static decimal SaisirTauxAnnuel()
+static void AjouterClient(List<Client> clients)
 {
-    while (true)
+    Console.Write("Nom du client : ");
+    string? nom = Console.ReadLine();
+
+    Console.Write("Ville : ");
+    string? ville = Console.ReadLine();
+
+    // Select + calcul du prochain id sans boucle manuelle
+    int prochainId = clients.Any() ? clients.Select(c => c.Id).Max() + 1 : 1;
+
+    clients.Add(new Client(prochainId, nom ?? "", ville ?? ""));
+    Console.WriteLine($"Client ajouté avec l'id {prochainId}.");
+}
+
+static void SupprimerClient(List<Client> clients)
+{
+    Console.Write("Id du client à supprimer : ");
+    if (!int.TryParse(Console.ReadLine(), out int id))
     {
-        Console.Write("Taux annuel (%) : ");
-        string? saisie = Console.ReadLine();
-
-        if (!decimal.TryParse(saisie, out decimal taux))
-        {
-            Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
-            continue;
-        }
-
-        if (taux <= 0)
-        {
-            Console.WriteLine("Erreur : le taux doit être positif.");
-            continue;
-        }
-
-        return taux;
+        Console.WriteLine("Erreur : id invalide.");
+        return;
     }
-}
 
-static int SaisirDuree()
-{
-    while (true)
+    // FirstOrDefault : recherche sans boucle manuelle
+    Client? client = clients.FirstOrDefault(c => c.Id == id);
+
+    if (client is null)
     {
-        Console.Write("Durée (mois) : ");
-        string? saisie = Console.ReadLine();
-
-        if (!int.TryParse(saisie, out int duree))
-        {
-            Console.WriteLine("Erreur : veuillez entrer un nombre entier valide.");
-            continue;
-        }
-
-        if (duree <= 0)
-        {
-            Console.WriteLine("Erreur : la durée doit être positive.");
-            continue;
-        }
-
-        return duree;
+        Console.WriteLine("Aucun client avec cet id.");
+        return;
     }
+
+    clients.Remove(client);
+    Console.WriteLine("Client supprimé.");
 }
 
-// switch expression : classe le montant en catégorie
-static string DeterminerCategorie(decimal montant) => montant switch
+static void RechercherParNom(List<Client> clients)
 {
-    < 500_000 => "Micro-crédit",
-    < 5_000_000 => "Standard",
-    _ => "Grand compte"
-};
+    Console.Write("Fragment de nom à rechercher : ");
+    string? fragment = Console.ReadLine() ?? "";
 
-static (decimal mensualite, decimal coutTotal, decimal interets) CalculerPret(decimal montant, decimal tauxAnnuel, int duree)
-{
-    decimal tauxMensuel = tauxAnnuel / 12 / 100;
-    double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -duree);
-    decimal mensualite = montant * tauxMensuel / (decimal)facteur;
+    // Where + Contains insensible à la casse, sans boucle manuelle
+    var résultats = clients
+        .Where(c => c.Nom.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+        .OrderBy(c => c.Nom);
 
-    decimal coutTotal = mensualite * duree;
-    decimal interets = coutTotal - montant;
+    if (!résultats.Any())
+    {
+        Console.WriteLine("Aucun résultat.");
+        return;
+    }
 
-    return (mensualite, coutTotal, interets);
+    foreach (var c in résultats)
+        Console.WriteLine($"  [{c.Id}] {c.Nom} - {c.Ville}");
 }
 
-static void AfficherResultat(decimal mensualite, decimal coutTotal, decimal interets)
-{
-    Console.WriteLine();
-    Console.WriteLine("=== Résultat ===");
-    Console.WriteLine($"Mensualité   : {mensualite:N2} FCFA");
-    Console.WriteLine($"Coût total   : {coutTotal:N2} FCFA");
-    Console.WriteLine($"Intérêts     : {interets:N2} FCFA");
-}
+
+// ===================== Modèle =====================
+
+record Client(int Id, string Nom, string Ville);
