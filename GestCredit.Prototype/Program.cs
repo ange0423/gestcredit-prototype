@@ -1,92 +1,114 @@
-﻿// GestCredit.Prototype - Jour 2
-// Calculateur de mensualité de prêt (montant, taux annuel, durée)
-// Règle : decimal pour tout montant financier, jamais double
+﻿// GestCredit.Prototype - Jour 3
+// Refactoring du Jour 2 en méthodes courtes + switch expression
 
-Console.WriteLine("=== Calculateur de mensualité de prêt ===");
-Console.WriteLine();
+decimal montant = SaisirMontant();
+decimal tauxAnnuel = SaisirTauxAnnuel();
+int duree = SaisirDuree();
 
-// --- Saisie du montant ---
-decimal montant;
-while (true)
+string categorie = DeterminerCategorie(montant);
+Console.WriteLine($"Catégorie du prêt : {categorie}");
+
+(decimal mensualite, decimal coutTotal, decimal interets) = CalculerPret(montant, tauxAnnuel, duree);
+
+AfficherResultat(mensualite, coutTotal, interets);
+
+
+// ===================== Méthodes =====================
+
+static decimal SaisirMontant()
 {
-    Console.Write("Montant du prêt (FCFA) : ");
-    string? saisieMontant = Console.ReadLine();
-
-    if (!decimal.TryParse(saisieMontant, out montant))
+    while (true)
     {
-        Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
-        continue;
-    }
+        Console.Write("Montant du prêt (FCFA) : ");
+        string? saisie = Console.ReadLine();
 
-    if (montant <= 0)
-    {
-        Console.WriteLine("Erreur : le montant doit être positif.");
-        continue;
-    }
+        if (!decimal.TryParse(saisie, out decimal montant))
+        {
+            Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
+            continue;
+        }
 
-    break; // saisie valide, on sort de la boucle
+        if (montant <= 0)
+        {
+            Console.WriteLine("Erreur : le montant doit être positif.");
+            continue;
+        }
+
+        return montant;
+    }
 }
 
-// --- Saisie du taux annuel ---
-decimal tauxAnnuel;
-while (true)
+static decimal SaisirTauxAnnuel()
 {
-    Console.Write("Taux annuel (%) : ");
-    string? saisieTaux = Console.ReadLine();
-
-    if (!decimal.TryParse(saisieTaux, out tauxAnnuel))
+    while (true)
     {
-        Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
-        continue;
-    }
+        Console.Write("Taux annuel (%) : ");
+        string? saisie = Console.ReadLine();
 
-    if (tauxAnnuel <= 0)
-    {
-        Console.WriteLine("Erreur : le taux doit être positif.");
-        continue;
-    }
+        if (!decimal.TryParse(saisie, out decimal taux))
+        {
+            Console.WriteLine("Erreur : veuillez entrer un nombre valide.");
+            continue;
+        }
 
-    break;
+        if (taux <= 0)
+        {
+            Console.WriteLine("Erreur : le taux doit être positif.");
+            continue;
+        }
+
+        return taux;
+    }
 }
 
-// --- Saisie de la durée ---
-int duree;
-while (true)
+static int SaisirDuree()
 {
-    Console.Write("Durée (mois) : ");
-    string? saisieDuree = Console.ReadLine();
-
-    if (!int.TryParse(saisieDuree, out duree))
+    while (true)
     {
-        Console.WriteLine("Erreur : veuillez entrer un nombre entier valide.");
-        continue;
-    }
+        Console.Write("Durée (mois) : ");
+        string? saisie = Console.ReadLine();
 
-    if (duree <= 0)
-    {
-        Console.WriteLine("Erreur : la durée doit être positive.");
-        continue;
-    }
+        if (!int.TryParse(saisie, out int duree))
+        {
+            Console.WriteLine("Erreur : veuillez entrer un nombre entier valide.");
+            continue;
+        }
 
-    break;
+        if (duree <= 0)
+        {
+            Console.WriteLine("Erreur : la durée doit être positive.");
+            continue;
+        }
+
+        return duree;
+    }
 }
 
-// --- Calcul de la mensualité ---
-// Formule des annuités constantes :
-// M = Montant * tauxMensuel / (1 - (1 + tauxMensuel)^(-duree))
+// switch expression : classe le montant en catégorie
+static string DeterminerCategorie(decimal montant) => montant switch
+{
+    < 500_000 => "Micro-crédit",
+    < 5_000_000 => "Standard",
+    _ => "Grand compte"
+};
 
-decimal tauxMensuel = tauxAnnuel / 12 / 100;
+static (decimal mensualite, decimal coutTotal, decimal interets) CalculerPret(decimal montant, decimal tauxAnnuel, int duree)
+{
+    decimal tauxMensuel = tauxAnnuel / 12 / 100;
+    double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -duree);
+    decimal mensualite = montant * tauxMensuel / (decimal)facteur;
 
-// Math.Pow travaille en double, on convertit puis on reconvertit en decimal
-double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -duree);
-decimal mensualite = montant * tauxMensuel / (decimal)facteur;
+    decimal coutTotal = mensualite * duree;
+    decimal interets = coutTotal - montant;
 
-decimal coutTotal = mensualite * duree;
-decimal interets = coutTotal - montant;
+    return (mensualite, coutTotal, interets);
+}
 
-// --- Affichage formaté à 2 décimales ---
-Console.WriteLine();
-Console.WriteLine("=== Résultat ===");
-Console.WriteLine($"Mensualité   : {mensualite:N2} FCFA");
-Console.WriteLine($"Coût total   : {coutTotal:N2} FCFA");
-Console.WriteLine($"Intérêts     : {interets:N2} FCFA");
+static void AfficherResultat(decimal mensualite, decimal coutTotal, decimal interets)
+{
+    Console.WriteLine();
+    Console.WriteLine("=== Résultat ===");
+    Console.WriteLine($"Mensualité   : {mensualite:N2} FCFA");
+    Console.WriteLine($"Coût total   : {coutTotal:N2} FCFA");
+    Console.WriteLine($"Intérêts     : {interets:N2} FCFA");
+}
