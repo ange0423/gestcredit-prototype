@@ -1,73 +1,98 @@
-﻿// GestCredit.Prototype - Jour 7
-// Interface ICalculateurInteret avec plusieurs implémentations (polymorphisme)
+﻿// GestCredit.Prototype - Jour 8
+// Exceptions personnalisées, enum, transitions de statut, nullable reference types
+#nullable enable
 
-var calculateurs = new List<ICalculateurInteret>
+var demande = new DemandeCredit(id: 1, montant: 2_000_000m);
+Console.WriteLine($"Statut initial : {demande.Statut}");
+
+// Transition légale : Brouillon -> Soumise
+try
 {
-    new CalculateurInteretSimple(),
-    new CalculateurInteretCompose(),
-    new CalculateurInteretDegressif(),
-};
-
-decimal montant = 1_000_000m;
-decimal tauxAnnuel = 10m;
-int dureeAnnees = 3;
-
-// La boucle ne connaît AUCUNE classe concrète : elle ne manipule que l'interface.
-// Ajouter une 4e implémentation à la liste ci-dessus ne demandera aucune modification ici.
-foreach (ICalculateurInteret calculateur in calculateurs)
+    demande.ChangerStatut(StatutDemande.Soumise);
+    Console.WriteLine($"Nouveau statut : {demande.Statut}");
+}
+catch (TransitionStatutInvalideException ex)
 {
-    decimal interets = calculateur.CalculerInterets(montant, tauxAnnuel, dureeAnnees);
-    Console.WriteLine($"{calculateur.GetType().Name} : {interets:N2} FCFA d'intérêts");
+    Console.WriteLine($"Erreur : {ex.Message}");
+}
+
+// Transition illégale volontaire : Soumise -> Approuvee (on saute "En analyse")
+try
+{
+    demande.ChangerStatut(StatutDemande.Approuvee);
+    Console.WriteLine($"Nouveau statut : {demande.Statut}");
+}
+catch (TransitionStatutInvalideException ex)
+{
+    Console.WriteLine($"Erreur attendue : {ex.Message}");
+}
+
+// Transition légale : Soumise -> EnAnalyse -> Approuvee
+demande.ChangerStatut(StatutDemande.EnAnalyse);
+Console.WriteLine($"Nouveau statut : {demande.Statut}");
+
+demande.ChangerStatut(StatutDemande.Approuvee);
+Console.WriteLine($"Nouveau statut : {demande.Statut}");
+
+
+// ===================== Enum =====================
+
+enum StatutDemande
+{
+    Brouillon,
+    Soumise,
+    EnAnalyse,
+    Approuvee,
+    Rejetee
 }
 
 
-// ===================== Interface =====================
+// ===================== Exception personnalisée =====================
 
-interface ICalculateurInteret
+class TransitionStatutInvalideException : Exception
 {
-    decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees);
-}
-
-
-// ===================== Implémentations =====================
-
-// Intérêt simple : interets = montant * taux * durée (le taux ne s'applique qu'au capital initial)
-class CalculateurInteretSimple : ICalculateurInteret
-{
-    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
+    public TransitionStatutInvalideException(StatutDemande statutActuel, StatutDemande statutCible)
+        : base($"Transition invalide : impossible de passer de '{statutActuel}' à '{statutCible}'.")
     {
-        decimal taux = tauxAnnuel / 100;
-        return montant * taux * dureeAnnees;
     }
 }
 
-// Intérêt composé : le capital croît chaque année, les intérêts se recalculent sur le nouveau capital
-class CalculateurInteretCompose : ICalculateurInteret
+
+// ===================== Classe métier =====================
+
+class DemandeCredit
 {
-    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
+    public int Id { get; }
+    public decimal Montant { get; }
+    public StatutDemande Statut { get; private set; } // set privé : seule la classe elle-même peut le modifier
+
+    public DemandeCredit(int id, decimal montant)
     {
-        decimal taux = tauxAnnuel / 100;
-        decimal capitalFinal = montant * (decimal)Math.Pow(1 + (double)taux, dureeAnnees);
-        return capitalFinal - montant;
+        if (montant <= 0)
+            throw new ArgumentException("Le montant doit être positif.", nameof(montant));
+
+        Id = id;
+        Montant = montant;
+        Statut = StatutDemande.Brouillon; // état initial obligatoire
     }
-}
 
-// Intérêt dégressif : le taux s'applique sur un capital qui diminue chaque année (ex. remboursement linéaire)
-class CalculateurInteretDegressif : ICalculateurInteret
-{
-    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
+    // Dictionnaire des transitions légales : statut actuel -> statuts autorisés
+    private static readonly Dictionary<StatutDemande, StatutDemande[]> TransitionsAutorisees = new()
     {
-        decimal taux = tauxAnnuel / 100;
-        decimal capitalRestant = montant;
-        decimal amortissementAnnuel = montant / dureeAnnees;
-        decimal totalInterets = 0;
+        [StatutDemande.Brouillon] = new[] { StatutDemande.Soumise },
+        [StatutDemande.Soumise] = new[] { StatutDemande.EnAnalyse },
+        [StatutDemande.EnAnalyse] = new[] { StatutDemande.Approuvee, StatutDemande.Rejetee },
+        [StatutDemande.Approuvee] = Array.Empty<StatutDemande>(), // statut final
+        [StatutDemande.Rejetee] = Array.Empty<StatutDemande>(),  // statut final
+    };
 
-        for (int annee = 1; annee <= dureeAnnees; annee++)
-        {
-            totalInterets += capitalRestant * taux;
-            capitalRestant -= amortissementAnnuel;
-        }
+    public void ChangerStatut(StatutDemande nouveauStatut)
+    {
+        bool transitionAutorisee = TransitionsAutorisees[Statut].Contains(nouveauStatut);
 
-        return totalInterets;
+        if (!transitionAutorisee)
+            throw new TransitionStatutInvalideException(Statut, nouveauStatut);
+
+        Statut = nouveauStatut;
     }
 }
