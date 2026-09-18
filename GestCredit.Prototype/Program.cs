@@ -1,93 +1,73 @@
-﻿// GestCredit.Prototype - Jour 6
-// Classes Client et DemandeCredit avec encapsulation
+﻿// GestCredit.Prototype - Jour 7
+// Interface ICalculateurInteret avec plusieurs implémentations (polymorphisme)
 
-var client = new Client("Amadou Diallo", "Dakar");
-Console.WriteLine($"Client créé : {client}");
+var calculateurs = new List<ICalculateurInteret>
+{
+    new CalculateurInteretSimple(),
+    new CalculateurInteretCompose(),
+    new CalculateurInteretDegressif(),
+};
 
-try
-{
-    var demande = new DemandeCredit(client, montant: 5_000_000m, tauxAnnuel: 12m, dureeMois: 24);
-    Console.WriteLine($"Mensualité : {demande.Mensualite:N2} FCFA");
-    Console.WriteLine($"Coût total : {demande.CoutTotal:N2} FCFA");
-    Console.WriteLine($"Intérêts   : {demande.Interets:N2} FCFA");
-}
-catch (ArgumentException ex)
-{
-    Console.WriteLine($"Erreur : {ex.Message}");
-}
+decimal montant = 1_000_000m;
+decimal tauxAnnuel = 10m;
+int dureeAnnees = 3;
 
-// Test volontaire d'un montant invalide pour vérifier que le constructeur protège bien la classe
-try
+// La boucle ne connaît AUCUNE classe concrète : elle ne manipule que l'interface.
+// Ajouter une 4e implémentation à la liste ci-dessus ne demandera aucune modification ici.
+foreach (ICalculateurInteret calculateur in calculateurs)
 {
-    var demandeInvalide = new DemandeCredit(client, montant: -1000m, tauxAnnuel: 12m, dureeMois: 24);
-}
-catch (ArgumentException ex)
-{
-    Console.WriteLine($"Erreur attendue : {ex.Message}");
+    decimal interets = calculateur.CalculerInterets(montant, tauxAnnuel, dureeAnnees);
+    Console.WriteLine($"{calculateur.GetType().Name} : {interets:N2} FCFA d'intérêts");
 }
 
 
-// ===================== Classes =====================
+// ===================== Interface =====================
 
-class Client
+interface ICalculateurInteret
 {
-    // ID généré automatiquement, exposé en lecture seule
-    private static int _prochainId = 1;
+    decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees);
+}
 
-    public int Id { get; }
-    public string Nom { get; }
-    public string Ville { get; }
 
-    public Client(string nom, string ville)
+// ===================== Implémentations =====================
+
+// Intérêt simple : interets = montant * taux * durée (le taux ne s'applique qu'au capital initial)
+class CalculateurInteretSimple : ICalculateurInteret
+{
+    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
     {
-        if (string.IsNullOrWhiteSpace(nom))
-            throw new ArgumentException("Le nom du client est obligatoire.");
-
-        Id = _prochainId++;
-        Nom = nom;
-        Ville = ville;
+        decimal taux = tauxAnnuel / 100;
+        return montant * taux * dureeAnnees;
     }
-
-    public override string ToString() => $"[{Id}] {Nom} ({Ville})";
 }
 
-class DemandeCredit
+// Intérêt composé : le capital croît chaque année, les intérêts se recalculent sur le nouveau capital
+class CalculateurInteretCompose : ICalculateurInteret
 {
-    public Client Client { get; }
-    public decimal Montant { get; }
-    public decimal TauxAnnuel { get; }
-    public int DureeMois { get; }
-
-    // Propriétés calculées : PAS de champ stocké, PAS de set public.
-    // Elles se recalculent à chaque lecture à partir de Montant, TauxAnnuel, DureeMois.
-    public decimal Mensualite
+    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
     {
-        get
+        decimal taux = tauxAnnuel / 100;
+        decimal capitalFinal = montant * (decimal)Math.Pow(1 + (double)taux, dureeAnnees);
+        return capitalFinal - montant;
+    }
+}
+
+// Intérêt dégressif : le taux s'applique sur un capital qui diminue chaque année (ex. remboursement linéaire)
+class CalculateurInteretDegressif : ICalculateurInteret
+{
+    public decimal CalculerInterets(decimal montant, decimal tauxAnnuel, int dureeAnnees)
+    {
+        decimal taux = tauxAnnuel / 100;
+        decimal capitalRestant = montant;
+        decimal amortissementAnnuel = montant / dureeAnnees;
+        decimal totalInterets = 0;
+
+        for (int annee = 1; annee <= dureeAnnees; annee++)
         {
-            decimal tauxMensuel = TauxAnnuel / 12 / 100;
-            double facteur = 1 - Math.Pow(1 + (double)tauxMensuel, -DureeMois);
-            return Montant * tauxMensuel / (decimal)facteur;
+            totalInterets += capitalRestant * taux;
+            capitalRestant -= amortissementAnnuel;
         }
-    }
 
-    public decimal CoutTotal => Mensualite * DureeMois; // syntaxe expression-bodied, équivalente à un get { }
-
-    public decimal Interets => CoutTotal - Montant;
-
-    public DemandeCredit(Client client, decimal montant, decimal tauxAnnuel, int dureeMois)
-    {
-        if (montant <= 0)
-            throw new ArgumentException("Le montant doit être positif.", nameof(montant));
-
-        if (tauxAnnuel <= 0)
-            throw new ArgumentException("Le taux doit être positif.", nameof(tauxAnnuel));
-
-        if (dureeMois <= 0)
-            throw new ArgumentException("La durée doit être positive.", nameof(dureeMois));
-
-        Client = client;
-        Montant = montant;
-        TauxAnnuel = tauxAnnuel;
-        DureeMois = dureeMois;
+        return totalInterets;
     }
 }
