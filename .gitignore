@@ -1,5 +1,4 @@
-@"
-## .NET
+ï»¿## .NET
 bin/
 obj/
 *.user
@@ -11,11 +10,7 @@ obj/
 ## OS
 .DS_Store
 Thumbs.db
-"@ | Out-File -Encoding utf8 .gitignore
 
-## DonnÃ©es gÃ©nÃ©rÃ©es par l'application (Jour 10)
-GestCredit.Prototype/clients.json
-GestCredit.Prototype/demandes.json
-## Données générées par l'application (Jour 10)
+## Donnees generees par l'application (Jour 10)
 GestCredit.Prototype/clients.json
 GestCredit.Prototype/demandes.json
