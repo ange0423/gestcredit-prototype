@@ -16,12 +16,40 @@ public class ClientService : IClientService
         _context = context;
     }
 
-    public async Task<IEnumerable<ClientDto>> GetClientsAsync()
+    public async Task<PagedResult<ClientDto>> GetClientsAsync(ClientQueryParameters query)
     {
-        return await _context.Clients
-            .AsNoTracking()
+        IQueryable<Client> clients = _context.Clients.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(query.Ville))
+        {
+            clients = clients.Where(c => c.Ville == query.Ville);
+        }
+
+        clients = query.TriPar?.ToLower() switch
+        {
+            "ville" => query.TriDescendant
+                ? clients.OrderByDescending(c => c.Ville)
+                : clients.OrderBy(c => c.Ville),
+            _ => query.TriDescendant
+                ? clients.OrderByDescending(c => c.Nom)
+                : clients.OrderBy(c => c.Nom)
+        };
+
+        int totalCount = await clients.CountAsync();
+
+        List<ClientDto> items = await clients
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
             .Select(c => new ClientDto(c.Id, c.Nom, c.Ville, c.Email))
             .ToListAsync();
+
+        return new PagedResult<ClientDto>
+        {
+            Items = items,
+            Page = query.Page,
+            PageSize = query.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<ClientDto?> GetClientAsync(int id)
@@ -30,9 +58,6 @@ public class ClientService : IClientService
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
 
-        // Pas de try/catch ici : une absence de résultat n'est pas une erreur,
-        // c'est un cas métier normal. On renvoie simplement null, et c'est au
-        // controller de traduire ça en 404 (voir ClientsController).
         return client is null ? null : new ClientDto(client.Id, client.Nom, client.Ville, client.Email);
     }
 
@@ -49,7 +74,7 @@ public class ClientService : IClientService
     public async Task<bool> UpdateClientAsync(int id, UpdateClientDto dto)
     {
         Client? client = await _context.Clients.FindAsync(id);
-        if (client is null) return false; // le controller traduit ça en 404
+        if (client is null) return false;
 
         client.Nom = dto.Nom;
         client.Ville = dto.Ville;
